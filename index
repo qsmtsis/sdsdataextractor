@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Material Data Extractor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .upload-section {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #667eea;
+            border-radius: 15px;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .file-input {
+            margin: 20px 0;
+        }
+        
+        input[type="file"] {
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            background: white;
+            font-size: 16px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .material-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin: 10px 0;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .material-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .material-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .material-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .entry-count {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        
+        .entries-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .entries-table th,
+        .entries-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .entries-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .total-quantity {
+            font-weight: bold;
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        
+        .progress {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+        
+        .download-section {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 15px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .summary {
+            background: linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Excel Material Data Extractor</h1>
+        
+        <div class="upload-section">
+            <h3>อัปโหลดไฟล์ Excel เพื่อดึงข้อมูลสารเคมีแยกตาม Material Number</h3>
+            <div class="file-input">
+                <input type="file" id="fileInput" accept=".xlsx,.xls" />
+            </div>
+            <button class="btn" onclick="processFile()">🔍 วิเคราะห์ไฟล์</button>
+        </div>
+        
+        <div id="status"></div>
+        <div id="progress" class="progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+            <div id="progressText">กำลังประมวลผล...</div>
+        </div>
+        
+        <div id="summary" class="summary" style="display: none;"></div>
+        
+        <div class="download-section" id="downloadSection" style="display: none;">
+            <h3>📁 ดาวน์โหลดไฟล์แยกตาม Material</h3>
+            <button class="btn" onclick="downloadAllSheets()">📥 ดาวน์โหลดไฟล์ Excel ทั้งหมด</button>
+            <button class="btn" onclick="downloadSummary()">📊 ดาวน์โหลดสรุปข้อมูล</button>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        let processedData = {};
+        let workbookData = null;
+
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function updateProgress(percent, text) {
+            const progressDiv = document.getElementById('progress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            progressDiv.style.display = 'block';
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+            
+            if (percent >= 100) {
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        async function processFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('กรุณาเลือกไฟล์ Excel', 'error');
+                return;
+            }
+
+            try {
+                updateProgress(10, 'กำลังอ่านไฟล์...');
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer);
+                
+                updateProgress(30, 'กำลังวิเคราะห์ข้อมูล...');
+                
+                // หา sheet หลักที่มีข้อมูล
+                const mainSheetName = workbook.SheetNames.find(name => 
+                    workbook.Sheets[name]['!ref'] && 
+                    workbook.Sheets[name]['!ref'].includes('500')
+                ) || workbook.SheetNames[0];
+                
+                const mainSheet = workbook.Sheets[mainSheetName];
+                
+                updateProgress(50, 'กำลังประมวลผลข้อมูล...');
+                
+                // แปลงข้อมูลเป็น JSON
+                const jsonData = XLSX.utils.sheet_to_json(mainSheet, { 
+                    range: 1,
+                    header: ["No", "Material", "Description", "Quantity", "Unit", "Col6", "Col7"] 
+                });
+                
+                // กรองข้อมูลที่มี Material number
+                const validData = jsonData.filter(row => 
+                    row.Material && 
+                    typeof row.Material === 'number' && 
+                    row.Description
+                );
+                
+                updateProgress(70, 'กำลังจัดกลุ่มข้อมูล...');
+                
+                // จัดกลุ่มตาม Material number
+                const groupedByMaterial = _.groupBy(validData, 'Material');
+                
+                // เตรียมข้อมูลสำหรับแสดงผล
+                processedData = Object.entries(groupedByMaterial)
+                    .map(([material, entries]) => ({
+                        material: parseInt(material),
+                        count: entries.length,
+                        entries: entries,
+                        totalQuantity: entries.reduce((sum, e) => sum + (parseFloat(e.Quantity) || 0), 0),
+                        description: entries[0].Description
+                    }))
+                    .sort((a, b) => b.count - a.count);
+                
+                workbookData = workbook;
+                
+                updateProgress(90, 'กำลังแสดงผล...');
+                
+                displayResults();
+                showSummary();
+                
+                updateProgress(100, 'เสร็จสิ้น!');
+                
+                document.getElementById('downloadSection').style.display = 'block';
+                
+                showStatus(`ประมวลผลเสร็จสิ้น! พบ Material ทั้งหมด ${processedData.length} รายการ`, 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('เกิดข้อผิดพลาดในการประมวลผลไฟล์: ' + error.message, 'error');
+            }
+        }
+
+        function showSummary() {
+            const duplicateMaterials = processedData.filter(item => item.count > 1);
+            const totalMaterials = processedData.length;
+            const totalEntries = processedData.reduce((sum, item) => sum + item.count, 0);
+            const totalQuantity = processedData.reduce((sum, item) => sum + item.totalQuantity, 0);
+            
+            const summaryDiv = document.getElementById('summary');
+            summaryDiv.innerHTML = `
+                <h3>📊 สรุปข้อมูล</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 10px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">${totalMaterials}</div>
+                        <div>Material Numbers ทั้งหมด</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 10px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #e74c3c;">${duplicateMaterials.length}</div>
+                        <div>Materials ที่มีรายการซ้ำ</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 10px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #27ae60;">${totalEntries}</div>
+                        <div>รายการทั้งหมด</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 10px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #f39c12;">${totalQuantity.toLocaleString()}</div>
+                        <div>ปริมาณรวม (Kg)</div>
+                    </div>
+                </div>
+            `;
+            summaryDiv.style.display = 'block';
+        }
+
+        function displayResults() {
+            const resultsDiv = document.getElementById('results');
+            const duplicateMaterials = processedData.filter(item => item.count > 1);
+            
+            let html = `
+                <h3>🔍 Materials ที่มีรายการซ้ำ (${duplicateMaterials.length} รายการ)</h3>
+            `;
+            
+            duplicateMaterials.forEach(item => {
+                html += `
+                    <div class="material-card">
+                        <div class="material-header">
+                            <div class="material-number">Material: ${item.material}</div>
+                            <div class="entry-count">${item.count} รายการ</div>
+                        </div>
+                        <div><strong>รายละเอียด:</strong> ${item.description}</div>
+                        <div class="total-quantity">ปริมาณรวม: ${item.totalQuantity.toLocaleString()} ${item.entries[0].Unit}</div>
+                        
+                        <table class="entries-table">
+                            <thead>
+                                <tr>
+                                    <th>ลำดับ</th>
+                                    <th>รายละเอียด</th>
+                                    <th>ปริมาณ</th>
+                                    <th>หน่วย</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${item.entries.map(entry => `
+                                    <tr>
+                                        <td>${entry.No}</td>
+                                        <td>${entry.Description}</td>
+                                        <td>${entry.Quantity ? entry.Quantity.toLocaleString() : 'N/A'}</td>
+                                        <td>${entry.Unit || 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function downloadAllSheets() {
+            if (!workbookData || !processedData.length) {
+                showStatus('ไม่มีข้อมูลที่จะดาวน์โหลด', 'error');
+                return;
+            }
+            
+            try {
+                // สร้าง workbook ใหม่
+                const newWorkbook = XLSX.utils.book_new();
+                
+                // เพิ่ม summary sheet
+                const summaryData = [
+                    ['Material Number', 'Description', 'Entry Count', 'Total Quantity', 'Unit'],
+                    ...processedData.map(item => [
+                        item.material,
+                        item.description,
+                        item.count,
+                        item.totalQuantity,
+                        item.entries[0].Unit
+                    ])
+                ];
+                
+                const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(newWorkbook, summarySheet, 'Summary');
+                
+                // เพิ่ม sheet สำหรับแต่ละ material ที่มีรายการซ้ำ
+                const duplicateMaterials = processedData.filter(item => item.count > 1);
+                
+                duplicateMaterials.forEach((item, index) => {
+                    const sheetData = [
+                        ['No', 'Material', 'Description', 'Quantity', 'Unit'],
+                        ...item.entries.map(entry => [
+                            entry.No,
+                            entry.Material,
+                            entry.Description,
+                            entry.Quantity,
+                            entry.Unit
+                        ])
+                    ];
+                    
+                    const sheet = XLSX.utils.aoa_to_sheet(sheetData);
+                    const sheetName = `Material_${item.material}`;
+                    XLSX.utils.book_append_sheet(newWorkbook, sheet, sheetName);
+                });
+                
+                // ดาวน์โหลดไฟล์
+                XLSX.writeFile(newWorkbook, 'Materials_by_Number.xlsx');
+                showStatus('ดาวน์โหลดไฟล์สำเร็จ!', 'success');
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                showStatus('เกิดข้อผิดพลาดในการดาวน์โหลด: ' + error.message, 'error');
+            }
+        }
+
+        function downloadSummary() {
+            if (!processedData.length) {
+                showStatus('ไม่มีข้อมูลที่จะดาวน์โหลด', 'error');
+                return;
+            }
+            
+            try {
+                const workbook = XLSX.utils.book_new();
+                
+                const summaryData = [
+                    ['Material Number', 'Description', 'Entry Count', 'Total Quantity', 'Unit', 'Has Duplicates'],
+                    ...processedData.map(item => [
+                        item.material,
+                        item.description,
+                        item.count,
+                        item.totalQuantity,
+                        item.entries[0].Unit,
+                        item.count > 1 ? 'Yes' : 'No'
+                    ])
+                ];
+                
+                const sheet = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(workbook, sheet, 'Material_Summary');
+                
+                XLSX.writeFile(workbook, 'Material_Summary.xlsx');
+                showStatus('ดาวน์โหลดไฟล์สรุปสำเร็จ!', 'success');
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                showStatus('เกิดข้อผิดพลาดในการดาวน์โหลด: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
